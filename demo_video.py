@@ -6,8 +6,7 @@ python demo_video.py \
     --mhr_path /path/to/mhr_model.pt \
     --output_fps 30 \
     --resolution 4k \
-    --cleanup \
-    --render_floor
+    --cleanup
 
 Process all videos in a folder:
 python demo_video.py \
@@ -16,8 +15,7 @@ python demo_video.py \
     --mhr_path /path/to/mhr_model.pt \
     --output_fps 30 \
     --resolution 4k \
-    --cleanup \
-    --render_floor
+    --cleanup
 '''
 
 import argparse
@@ -182,7 +180,7 @@ def process_single_video(video_path, estimator, args):
         )
 
         img = cv2.imread(image_path)
-        rend_img = visualize_sample_together(img, outputs, estimator.faces, render_floor=args.render_floor)
+        rend_img = visualize_sample_together(img, outputs, estimator.faces, render_floor=args.render_floor, largest_body_only=args.largest_body_only)
         
         # Save with same filename as input frame
         output_filename = os.path.basename(image_path)
@@ -409,6 +407,12 @@ if __name__ == "__main__":
         action="store_true",
         default=True,
         help="Render floor plane in side, back, and top views (default: True)",
+    )
+    parser.add_argument(
+        "--largest_body_only",
+        action="store_true",
+        default=False,
+        help="When multiple bodies detected, only process and render the largest one (default: False)",
     )
     args = parser.parse_args()
 

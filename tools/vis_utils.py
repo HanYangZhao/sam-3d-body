@@ -91,10 +91,23 @@ def visualize_sample(img_cv2, outputs, faces):
 
     return rend_img
 
-def visualize_sample_together(img_cv2, outputs, faces, render_floor=True):
+def visualize_sample_together(img_cv2, outputs, faces, render_floor=True, largest_body_only=False):largest_body_only=False):
     # Render everything together
     img_keypoints = img_cv2.copy()
     img_mesh = img_cv2.copy()
+    
+    # If largest_body_only is True, filter to keep only the largest detected body
+    if largest_body_only and len(outputs) > 1:
+        # Calculate bbox area for each detected body
+        bbox_areas = []
+        for output in outputs:
+            bbox = output['bbox']  # [x1, y1, x2, y2]
+            area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
+            bbox_areas.append(area)
+        # Keep only the output with the largest bbox
+        largest_idx = np.argmax(bbox_areas)
+        outputs = [outputs[largest_idx]]
+        print(f"Filtered to largest body (bbox area: {bbox_areas[largest_idx]:.0f} pixels)")
 
     # First, sort by depth, furthest to closest
     all_depths = np.stack([tmp['pred_cam_t'] for tmp in outputs], axis=0)[:, 2]

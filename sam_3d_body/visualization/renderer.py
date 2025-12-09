@@ -220,6 +220,49 @@ class Renderer:
             bg_color=[*scene_bg_color, 0.0], ambient_light=(0.3, 0.3, 0.3)
         )
         scene.add(mesh, "mesh")
+        
+        # Add floor plane for side, back, and top views
+        if side_view or top_view:
+            # Create a floor plane
+            floor_size = 4.0  # Size of the floor plane in meters
+            floor_trimesh = trimesh.creation.box(
+                extents=[floor_size, 0.01, floor_size]  # Thin flat box
+            )
+            # Position floor below the mesh (at feet level)
+            # Estimate the lowest point of the mesh
+            mesh_vertices = vertices.copy()
+            if side_view:
+                angle = rot_angle if side_view_direction.lower() == "right" else -rot_angle
+                rot = trimesh.transformations.rotation_matrix(
+                    np.radians(angle), [0, 1, 0]
+                )
+                mesh_vertices = trimesh.transform_points(mesh_vertices, rot)
+            elif top_view:
+                rot = trimesh.transformations.rotation_matrix(
+                    np.radians(rot_angle), [1, 0, 0]
+                )
+                mesh_vertices = trimesh.transform_points(mesh_vertices, rot)
+            
+            rot = trimesh.transformations.rotation_matrix(np.radians(180), [1, 0, 0])
+            mesh_vertices = trimesh.transform_points(mesh_vertices, rot)
+            
+            # Find the lowest Y coordinate (after transformations)
+            min_y = np.min(mesh_vertices[:, 1])
+            
+            # Position floor slightly below the lowest point
+            floor_translation = np.eye(4)
+            floor_translation[1, 3] = min_y - 0.01  # Just below feet
+            floor_trimesh.apply_transform(floor_translation)
+            
+            # Create floor material (tennis court green)
+            floor_material = pyrender.MetallicRoughnessMaterial(
+                metallicFactor=0.0,
+                alphaMode="OPAQUE",
+                baseColorFactor=(0.26, 0.55, 0.30, 1.0),  # Tennis court green
+                roughnessFactor=1.0
+            )
+            floor_mesh = pyrender.Mesh.from_trimesh(floor_trimesh, material=floor_material)
+            scene.add(floor_mesh, "floor")
 
         camera_pose = np.eye(4)
         camera_pose[:3, 3] = camera_translation

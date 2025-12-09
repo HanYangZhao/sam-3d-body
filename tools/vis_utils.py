@@ -134,8 +134,27 @@ def visualize_sample_together(img_cv2, outputs, faces, render_floor=True, larges
     fake_pred_cam_t = (np.max(all_pred_vertices[-2*18439:], axis=0) + np.min(all_pred_vertices[-2*18439:], axis=0)) / 2
     all_pred_vertices = all_pred_vertices - fake_pred_cam_t
     
+    # Calculate mesh bounding box to ensure full body is in frame
+    mesh_min = np.min(all_pred_vertices, axis=0)
+    mesh_max = np.max(all_pred_vertices, axis=0)
+    mesh_size = np.linalg.norm(mesh_max - mesh_min)
+    
+    # Adjust camera distance to fit the full body in frame
+    # Use a conservative multiplier to ensure nothing is cut off
+    img_height = img_cv2.shape[0]
+    focal_length = person_output["focal_length"]
+    
+    # Calculate required distance based on mesh size and image dimensions
+    # Distance should be: mesh_size * focal_length / (image_size * safety_margin)
+    safety_margin = 0.7  # Use 70% of available space to ensure full body fits
+    required_z_distance = mesh_size * focal_length / (img_height * safety_margin)
+    
+    # Make sure camera is far enough back to see the whole body
+    if fake_pred_cam_t[2] < required_z_distance:
+        fake_pred_cam_t[2] = required_z_distance
+    
     # Render front view
-    renderer = Renderer(focal_length=person_output["focal_length"], faces=all_faces)
+    renderer = Renderer(focal_length=focal_length, faces=all_faces)
     img_mesh = (
         renderer(
             all_pred_vertices,

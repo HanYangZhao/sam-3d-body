@@ -405,7 +405,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--render_floor",
         action="store_true",
-        default=True,
+        default=False,
         help="Render floor plane in side, back, and top views (default: True)",
     )
     parser.add_argument(

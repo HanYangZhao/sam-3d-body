@@ -223,7 +223,7 @@ class Renderer:
         scene.add(mesh, "mesh")
         
         # Add floor plane for side, back, and top views
-        if render_floor and (side_view or top_view):
+        if render_floor:
             # Create a floor plane
             floor_size = 4.0  # Size of the floor plane in meters
             floor_trimesh = trimesh.creation.box(

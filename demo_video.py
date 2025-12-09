@@ -2,19 +2,21 @@
 Process single video:
 python demo_video.py \
     --video_path /path/to/video.mp4 \
-    --checkpoint_path /path/to/dinov3.ckpt \
-    --mhr_path /path/to/mhr_model.pt \
+    --checkpoint_path dinov3.ckpt \
+    --mhr_path mhr_model.pt \
     --output_fps 30 \
     --resolution 4k \
+    --render_floor \
     --cleanup
 
 Process all videos in a folder:
 python demo_video.py \
     --video_folder /path/to/videos \
-    --checkpoint_path /path/to/dinov3.ckpt \
-    --mhr_path /path/to/mhr_model.pt \
+    --checkpoint_path dinov3.ckpt \
+    --mhr_path mhr_model.pt \
     --output_fps 30 \
     --resolution 4k \
+    --render_floor \
     --cleanup
 '''
 

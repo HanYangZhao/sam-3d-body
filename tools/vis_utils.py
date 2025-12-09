@@ -153,21 +153,22 @@ def visualize_sample_together(img_cv2, outputs, faces, render_floor=True, larges
     if fake_pred_cam_t[2] < required_z_distance:
         fake_pred_cam_t[2] = required_z_distance
     
+    white_img = np.ones_like(img_cv2) * 255
     # Render front view
     renderer = Renderer(focal_length=focal_length, faces=all_faces)
     img_mesh = (
         renderer(
             all_pred_vertices,
             fake_pred_cam_t,
-            img_mesh,
+            white_img,
             mesh_base_color=LIGHT_BLUE,
             scene_bg_color=(1, 1, 1),
+            render_floor=render_floor
         )
         * 255
     )
 
     # Render side view
-    white_img = np.ones_like(img_cv2) * 255
     img_mesh_side_right = (
         renderer(
             all_pred_vertices,
@@ -203,7 +204,7 @@ def visualize_sample_together(img_cv2, outputs, faces, render_floor=True, larges
             scene_bg_color=(1, 1, 1),
             top_view=True,
             side_view=False,
-            render_floor=render_floor
+            render_floor=False
         )
         * 255
     )

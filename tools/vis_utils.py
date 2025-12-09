@@ -91,7 +91,7 @@ def visualize_sample(img_cv2, outputs, faces):
 
     return rend_img
 
-def visualize_sample_together(img_cv2, outputs, faces, render_floor=True, largest_body_only=False):largest_body_only=False):
+def visualize_sample_together(img_cv2, outputs, faces, render_floor=True, largest_body_only=False):
     # Render everything together
     img_keypoints = img_cv2.copy()
     img_mesh = img_cv2.copy()

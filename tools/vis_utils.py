@@ -91,7 +91,7 @@ def visualize_sample(img_cv2, outputs, faces):
 
     return rend_img
 
-def visualize_sample_together(img_cv2, outputs, faces):
+def visualize_sample_together(img_cv2, outputs, faces, render_floor=True):
     # Render everything together
     img_keypoints = img_cv2.copy()
     img_mesh = img_cv2.copy()
@@ -144,7 +144,8 @@ def visualize_sample_together(img_cv2, outputs, faces):
             mesh_base_color=LIGHT_BLUE,
             scene_bg_color=(1, 1, 1),
             side_view=True,
-            side_view_direction='right'
+            side_view_direction='right',
+            render_floor=render_floor
         )
         * 255
     )
@@ -156,7 +157,8 @@ def visualize_sample_together(img_cv2, outputs, faces):
             mesh_base_color=LIGHT_BLUE,
             scene_bg_color=(1, 1, 1),
             side_view=True,
-            side_view_direction='left'
+            side_view_direction='left',
+            render_floor=render_floor
         )
         * 255
     )
@@ -168,7 +170,8 @@ def visualize_sample_together(img_cv2, outputs, faces):
             mesh_base_color=LIGHT_BLUE,
             scene_bg_color=(1, 1, 1),
             top_view=True,
-            side_view=False
+            side_view=False,
+            render_floor=render_floor
         )
         * 255
     )
@@ -182,7 +185,8 @@ def visualize_sample_together(img_cv2, outputs, faces):
             scene_bg_color=(1, 1, 1),
             side_view=True,
             side_view_direction='left',
-            rot_angle=180
+            rot_angle=180,
+            render_floor=render_floor
         )
         * 255
     )

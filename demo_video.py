@@ -6,7 +6,8 @@ python demo_video.py \
     --mhr_path /path/to/mhr_model.pt \
     --output_fps 30 \
     --resolution 4k \
-    --cleanup
+    --cleanup \
+    --render_floor
 
 Process all videos in a folder:
 python demo_video.py \
@@ -15,7 +16,8 @@ python demo_video.py \
     --mhr_path /path/to/mhr_model.pt \
     --output_fps 30 \
     --resolution 4k \
-    --cleanup
+    --cleanup \
+    --render_floor
 '''
 
 import argparse
@@ -180,7 +182,7 @@ def process_single_video(video_path, estimator, args):
         )
 
         img = cv2.imread(image_path)
-        rend_img = visualize_sample_together(img, outputs, estimator.faces)
+        rend_img = visualize_sample_together(img, outputs, estimator.faces, render_floor=args.render_floor)
         
         # Save with same filename as input frame
         output_filename = os.path.basename(image_path)
@@ -401,6 +403,12 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
         help="Use mask-conditioned prediction (segmentation mask is automatically generated from bbox)",
+    )
+    parser.add_argument(
+        "--render_floor",
+        action="store_true",
+        default=True,
+        help="Render floor plane in side, back, and top views (default: True)",
     )
     args = parser.parse_args()
 

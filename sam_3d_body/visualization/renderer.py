@@ -160,6 +160,7 @@ class Renderer:
         tri_color_lights=False,
         return_rgba=False,
         camera_center=None,
+        render_floor=True,
     ) -> np.array:
         """
         Render meshes on input image
@@ -222,7 +223,7 @@ class Renderer:
         scene.add(mesh, "mesh")
         
         # Add floor plane for side, back, and top views
-        if side_view or top_view:
+        if render_floor and (side_view or top_view):
             # Create a floor plane
             floor_size = 4.0  # Size of the floor plane in meters
             floor_trimesh = trimesh.creation.box(
@@ -242,9 +243,13 @@ class Renderer:
                     np.radians(rot_angle), [1, 0, 0]
                 )
                 mesh_vertices = trimesh.transform_points(mesh_vertices, rot)
+                # Apply same rotation to floor for top view
+                floor_trimesh.apply_transform(rot)
             
             rot = trimesh.transformations.rotation_matrix(np.radians(180), [1, 0, 0])
             mesh_vertices = trimesh.transform_points(mesh_vertices, rot)
+            # Apply final 180-degree rotation to floor as well
+            floor_trimesh.apply_transform(rot)
             
             # Find the lowest Y coordinate (after transformations)
             min_y = np.min(mesh_vertices[:, 1])

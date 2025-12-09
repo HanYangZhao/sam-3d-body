@@ -67,6 +67,15 @@ class SAM3DBodyEstimator:
             ]
         )
 
+    def reset_cache(self):
+        """
+        Reset cached FOV data. 
+        Useful when processing multiple videos or switching between scenes.
+        """
+        self.cached_cam_int = None
+        self.fov_estimation_count = 0
+        print("Cache reset: FOV will be re-estimated for next video/scene.")
+
     @torch.no_grad()
     def process_one_image(
         self,

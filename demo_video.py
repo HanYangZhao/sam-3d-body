@@ -6,6 +6,7 @@ python demo_video.py \
     --mhr_path /path/to/mhr_model.pt \
     --output_fps 30 \
     --resolution 4k \
+    --skip_detection \
     --cleanup
 
 Process all videos in a folder:
@@ -15,6 +16,7 @@ python demo_video.py \
     --mhr_path /path/to/mhr_model.pt \
     --output_fps 30 \
     --resolution 4k \
+    --skip_detection \
     --cleanup
 '''
 
@@ -41,7 +43,7 @@ from tqdm import tqdm
 
 
 def extract_frames_from_video(video_path, output_folder):
-    """Extract frames from video and save to output folder, resized to 720p"""
+    """Extract frames from video and save to output folder, resizing smallest dimension to 720p"""
     os.makedirs(output_folder, exist_ok=True)
     
     cap = cv2.VideoCapture(video_path)
@@ -53,12 +55,15 @@ def extract_frames_from_video(video_path, output_folder):
     orig_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     orig_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     
-    # Calculate 720p dimensions maintaining aspect ratio
-    target_height = 720
-    target_width = int(orig_width * (720 / orig_height))
+    # Calculate dimensions: smallest dimension becomes 720p, maintaining aspect ratio
+    min_dimension = min(orig_height, orig_width)
+    scale_factor = 720 / min_dimension
+    
+    target_height = int(orig_height * scale_factor)
+    target_width = int(orig_width * scale_factor)
     
     print(f"Extracting {frame_count} frames from video (FPS: {fps})...")
-    print(f"Resizing from {orig_width}x{orig_height} to {target_width}x{target_height} (720p)")
+    print(f"Resizing from {orig_width}x{orig_height} to {target_width}x{target_height} (smallest dimension: 720p)")
     
     frame_idx = 0
     with tqdm(total=frame_count) as pbar:
@@ -227,12 +232,14 @@ def main(args):
     )
 
     human_detector, human_segmentor, fov_estimator = None, None, None
-    if args.detector_name:
+    if args.detector_name and not args.skip_detection:
         from tools.build_detector import HumanDetector
 
         human_detector = HumanDetector(
             name=args.detector_name, device=device, path=detector_path
         )
+    elif args.skip_detection:
+        print("\n=== Skipping human detection (using full frame) ===")
     if len(segmentor_path):
         from tools.build_sam import HumanSegmentor
 
@@ -281,6 +288,11 @@ def main(args):
     output_videos = []
     for i, video_path in enumerate(video_list, 1):
         print(f"\n[{i}/{len(video_list)}] {os.path.basename(video_path)}")
+        
+        # Reset cache between videos for static_camera mode
+        if args.static_camera and i > 1:
+            estimator.reset_cache()
+        
         try:
             output_video = process_single_video(video_path, estimator, args)
             output_videos.append(output_video)
@@ -353,7 +365,13 @@ if __name__ == "__main__":
         "--detector_name",
         default="vitdet",
         type=str,
-        help="Human detection model for demo (Default `vitdet`, add your favorite detector if needed).",
+        help="Human detection model for demo (Default `vitdet`, add your favorite detector if needed). Set to empty string '' to skip detection and use full frame (faster).",
+    )
+    parser.add_argument(
+        "--skip_detection",
+        action="store_true",
+        default=False,
+        help="Skip human detection and use full frame (much faster, use when player is always fully visible in frame)",
     )
     parser.add_argument(
         "--segmentor_name",

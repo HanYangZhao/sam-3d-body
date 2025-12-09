@@ -27,6 +27,7 @@ class SAM3DBodyEstimator:
         human_detector=None,
         human_segmentor=None,
         fov_estimator=None,
+        static_camera=False,
     ):
         self.device = sam_3d_body_model.device
         self.model, self.cfg = sam_3d_body_model, model_cfg
@@ -34,6 +35,12 @@ class SAM3DBodyEstimator:
         self.sam = human_segmentor
         self.fov_estimator = fov_estimator
         self.thresh_wrist_angle = 1.4
+        self.static_camera = static_camera
+        
+        # Cache for FOV estimation (useful for video processing with static camera)
+        self.cached_cam_int = None
+        self.fov_estimation_count = 0
+        self.fov_estimation_limit = 5  # Number of frames to average for FOV
 
         # For mesh visualization
         self.faces = self.model.head_pose.faces.cpu().numpy()
@@ -167,12 +174,40 @@ class SAM3DBodyEstimator:
             cam_int = cam_int.to(batch["img"])
             batch["cam_int"] = cam_int.clone()
         elif self.fov_estimator is not None:
-            print("Running FOV estimator ...")
-            input_image = batch["img_ori"][0].data
-            cam_int = self.fov_estimator.get_cam_intrinsics(input_image).to(
-                batch["img"]
-            )
-            batch["cam_int"] = cam_int.clone()
+            # Use cached FOV if static_camera mode is enabled and FOV has been estimated
+            if self.static_camera and self.cached_cam_int is not None:
+                cam_int = self.cached_cam_int.to(batch["img"])
+                batch["cam_int"] = cam_int.clone()
+            elif self.static_camera and self.fov_estimation_count < self.fov_estimation_limit:
+                # Estimate FOV for the first few frames and average (static camera mode)
+                print(f"Running FOV estimator (frame {self.fov_estimation_count + 1}/{self.fov_estimation_limit})...")
+                input_image = batch["img_ori"][0].data
+                cam_int = self.fov_estimator.get_cam_intrinsics(input_image).to(
+                    batch["img"]
+                )
+                
+                # Accumulate FOV estimates
+                if self.fov_estimation_count == 0:
+                    self.cached_cam_int = cam_int.clone()
+                else:
+                    # Running average
+                    self.cached_cam_int = (self.cached_cam_int * self.fov_estimation_count + cam_int) / (self.fov_estimation_count + 1)
+                
+                self.fov_estimation_count += 1
+                
+                # Once we have enough estimates, print confirmation
+                if self.fov_estimation_count >= self.fov_estimation_limit:
+                    print(f"FOV estimation complete (averaged over {self.fov_estimation_limit} frames). Using cached FOV for remaining frames.")
+                
+                batch["cam_int"] = cam_int.clone()
+            else:
+                # Dynamic camera mode - estimate FOV for every frame
+                print("Running FOV estimator ...")
+                input_image = batch["img_ori"][0].data
+                cam_int = self.fov_estimator.get_cam_intrinsics(input_image).to(
+                    batch["img"]
+                )
+                batch["cam_int"] = cam_int.clone()
         else:
             cam_int = batch["cam_int"].clone()
 

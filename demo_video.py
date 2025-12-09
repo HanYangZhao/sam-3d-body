@@ -2,21 +2,19 @@
 Process single video:
 python demo_video.py \
     --video_path /path/to/video.mp4 \
-    --checkpoint_path dinov3.ckpt \
-    --mhr_path mhr_model.pt \
+    --checkpoint_path /path/to/dinov3.ckpt \
+    --mhr_path /path/to/mhr_model.pt \
     --output_fps 30 \
     --resolution 4k \
-    --render_floor \
     --cleanup
 
 Process all videos in a folder:
 python demo_video.py \
     --video_folder /path/to/videos \
-    --checkpoint_path dinov3.ckpt \
-    --mhr_path mhr_model.pt \
+    --checkpoint_path /path/to/dinov3.ckpt \
+    --mhr_path /path/to/mhr_model.pt \
     --output_fps 30 \
     --resolution 4k \
-    --render_floor \
     --cleanup
 '''
 
@@ -252,6 +250,7 @@ def main(args):
         human_detector=human_detector,
         human_segmentor=human_segmentor,
         fov_estimator=fov_estimator,
+        static_camera=args.static_camera,
     )
     
     # Get list of videos to process
@@ -407,7 +406,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--render_floor",
         action="store_true",
-        default=False,
+        default=True,
         help="Render floor plane in side, back, and top views (default: True)",
     )
     parser.add_argument(
@@ -415,6 +414,12 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
         help="When multiple bodies detected, only process and render the largest one (default: False)",
+    )
+    parser.add_argument(
+        "--static_camera",
+        action="store_true",
+        default=False,
+        help="Enable static camera mode: FOV is estimated from first 5 frames and cached (faster for videos with fixed camera)",
     )
     args = parser.parse_args()
 

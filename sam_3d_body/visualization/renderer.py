@@ -152,6 +152,7 @@ class Renderer:
         full_frame: bool = False,
         imgname: Optional[str] = None,
         side_view=False,
+        side_view_direction="right",
         top_view=False,
         rot_angle=90,
         mesh_base_color=(1.0, 1.0, 0.9),
@@ -168,6 +169,9 @@ class Renderer:
             image (np.array): Array of (H, W, 3) containing the cropped image (unnormalized values).
             full_frame (bool): If True, then render on the full image.
             imgname (Optional[str]): Contains the original image filenamee. Used only if full_frame == True.
+            side_view (bool): If True, render side view.
+            side_view_direction (str): Direction for side view - "right" or "left".
+            top_view (bool): If True, render top view.
         """
 
         if full_frame:
@@ -182,7 +186,7 @@ class Renderer:
 
         camera_translation = cam_t.copy()
         camera_translation[0] *= -1.0
-
+        
         material = pyrender.MetallicRoughnessMaterial(
             metallicFactor=0.0,
             alphaMode="OPAQUE",
@@ -196,8 +200,9 @@ class Renderer:
         mesh = trimesh.Trimesh(vertices.copy(), self.faces.copy())
 
         if side_view:
+            angle = rot_angle if side_view_direction.lower() == "right" else -rot_angle
             rot = trimesh.transformations.rotation_matrix(
-                np.radians(rot_angle), [0, 1, 0]
+                np.radians(angle), [0, 1, 0]
             )
             mesh.apply_transform(rot)
         elif top_view:

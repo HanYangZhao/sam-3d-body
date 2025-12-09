@@ -136,7 +136,7 @@ def visualize_sample_together(img_cv2, outputs, faces):
 
     # Render side view
     white_img = np.ones_like(img_cv2) * 255
-    img_mesh_side = (
+    img_mesh_side_right = (
         renderer(
             all_pred_vertices,
             fake_pred_cam_t,
@@ -144,10 +144,49 @@ def visualize_sample_together(img_cv2, outputs, faces):
             mesh_base_color=LIGHT_BLUE,
             scene_bg_color=(1, 1, 1),
             side_view=True,
+            side_view_direction='right'
+        )
+        * 255
+    )
+    img_mesh_side_left = (
+        renderer(
+            all_pred_vertices,
+            fake_pred_cam_t,
+            white_img,
+            mesh_base_color=LIGHT_BLUE,
+            scene_bg_color=(1, 1, 1),
+            side_view=True,
+            side_view_direction='left'
+        )
+        * 255
+    )
+    img_mesh_top = (
+        renderer(
+            all_pred_vertices,
+            fake_pred_cam_t,
+            white_img,
+            mesh_base_color=LIGHT_BLUE,
+            scene_bg_color=(1, 1, 1),
+            top_view=True,
+            side_view=False
+        )
+        * 255
+    )
+    
+    img_mesh_back = (
+        renderer(
+            all_pred_vertices,
+            fake_pred_cam_t,
+            white_img,
+            mesh_base_color=LIGHT_BLUE,
+            scene_bg_color=(1, 1, 1),
+            side_view=True,
+            side_view_direction='left',
+            rot_angle=180
         )
         * 255
     )
 
-    cur_img = np.concatenate([img_cv2, img_keypoints, img_mesh, img_mesh_side], axis=1)
+    cur_img = np.concatenate([img_keypoints, img_mesh, img_mesh_side_right, img_mesh_side_left,img_mesh_back,img_mesh_top, ], axis=1)
 
     return cur_img

@@ -87,11 +87,11 @@ For a quick start, run our demo script for model inference and visualization wit
 hf download facebook/sam-3d-body-dinov3 --local-dir checkpoints/sam-3d-body-dinov3
 
 # Run demo script
-python demo.py \
-    --image_folder <path_to_images> \
-    --output_folder <path_to_output> \
-    --checkpoint_path ./checkpoints/sam-3d-body-dinov3/model.ckpt \
-    --mhr_path ./checkpoints/sam-3d-body-dinov3/assets/mhr_model.pt
+python demo_no_viz.py \
+    --image_folder frames \
+    --output_folder outputs \
+    --checkpoint_path dinov3.ckpt \
+    --mhr_path mhr_model.pt
 
 # macOS Note: If you encounter OpenGL/rendering errors, set this environment variable:
 export PYOPENGL_PLATFORM=''

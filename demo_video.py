@@ -161,6 +161,16 @@ def process_single_video(video_path, estimator, args):
     output_folder = os.path.join(video_dir, f"{video_name}_output")
     os.makedirs(output_folder, exist_ok=True)
     
+    # Checkpoint file to track progress
+    checkpoint_file = os.path.join(output_folder, "progress.txt")
+    
+    # Load previously processed frames
+    processed_frames = set()
+    if os.path.exists(checkpoint_file):
+        with open(checkpoint_file, 'r') as f:
+            processed_frames = set(line.strip() for line in f if line.strip())
+        print(f"Found checkpoint: {len(processed_frames)} frames already processed")
+    
     # Step 1: Extract frames from video
     print(f"\n=== Processing: {os.path.basename(video_path)} ===")
     print("Step 1: Extracting frames from video")
@@ -176,23 +186,36 @@ def process_single_video(video_path, estimator, args):
             for image in glob(os.path.join(frames_folder, ext))
         ]
     )
+    
+    # Filter out already processed frames
+    remaining_images = [img for img in images_list if os.path.basename(img) not in processed_frames]
+    
+    if len(remaining_images) < len(images_list):
+        print(f"Resuming from checkpoint: {len(remaining_images)} frames remaining")
+    
+    if len(remaining_images) == 0:
+        print("All frames already processed, skipping to video creation")
+    else:
+        for image_path in tqdm(remaining_images, desc="Processing frames"):
+            outputs = estimator.process_one_image(
+                image_path,
+                bbox_thr=args.bbox_thresh,
+                use_mask=args.use_mask,
+            )
 
-    for image_path in tqdm(images_list, desc="Processing frames"):
-        outputs = estimator.process_one_image(
-            image_path,
-            bbox_thr=args.bbox_thresh,
-            use_mask=args.use_mask,
-        )
-
-        img = cv2.imread(image_path)
-        rend_img = visualize_sample_together(img, outputs, estimator.faces, render_floor=args.render_floor, largest_body_only=args.largest_body_only)
-        
-        # Save with same filename as input frame
-        output_filename = os.path.basename(image_path)
-        cv2.imwrite(
-            os.path.join(output_folder, output_filename),
-            rend_img.astype(np.uint8),
-        )
+            img = cv2.imread(image_path)
+            rend_img = visualize_sample_together(img, outputs, estimator.faces, render_floor=args.render_floor, largest_body_only=args.largest_body_only)
+            
+            # Save with same filename as input frame
+            output_filename = os.path.basename(image_path)
+            cv2.imwrite(
+                os.path.join(output_folder, output_filename),
+                rend_img.astype(np.uint8),
+            )
+            
+            # Update checkpoint file
+            with open(checkpoint_file, 'a') as f:
+                f.write(output_filename + '\n')
     
     # Step 3: Create output video
     print("Step 3: Creating output video")
@@ -202,10 +225,18 @@ def process_single_video(video_path, estimator, args):
     # Optional: Clean up intermediate frames if requested
     if args.cleanup:
         print("Cleaning up intermediate files")
+        # Remove checkpoint file
+        if os.path.exists(checkpoint_file):
+            os.remove(checkpoint_file)
         shutil.rmtree(frames_folder)
         print(f"Removed extracted frames folder: {frames_folder}")
         shutil.rmtree(output_folder)
         print(f"Removed processed frames folder: {output_folder}")
+    else:
+        # Keep checkpoint file but mark as complete
+        if os.path.exists(checkpoint_file):
+            with open(checkpoint_file, 'a') as f:
+                f.write('\n# Processing completed successfully\n')
     
     print(f"✓ Completed: {os.path.basename(video_path)}")
     print(f"  Output video: {output_video_path}")
@@ -370,7 +401,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--skip_detection",
         action="store_true",
-        default=False,
+        default=True,
         help="Skip human detection and use full frame (much faster, use when player is always fully visible in frame)",
     )
     parser.add_argument(
@@ -430,13 +461,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--largest_body_only",
         action="store_true",
-        default=False,
+        default=True,
         help="When multiple bodies detected, only process and render the largest one (default: False)",
     )
     parser.add_argument(
         "--static_camera",
         action="store_true",
-        default=False,
+        default=True,
         help="Enable static camera mode: FOV is estimated from first 5 frames and cached (faster for videos with fixed camera)",
     )
     args = parser.parse_args()

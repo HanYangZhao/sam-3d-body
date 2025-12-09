@@ -41,7 +41,7 @@ from tqdm import tqdm
 
 
 def extract_frames_from_video(video_path, output_folder):
-    """Extract frames from video and save to output folder"""
+    """Extract frames from video and save to output folder, resized to 720p"""
     os.makedirs(output_folder, exist_ok=True)
     
     cap = cv2.VideoCapture(video_path)
@@ -50,8 +50,15 @@ def extract_frames_from_video(video_path, output_folder):
     
     fps = cap.get(cv2.CAP_PROP_FPS)
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    orig_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    orig_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    
+    # Calculate 720p dimensions maintaining aspect ratio
+    target_height = 720
+    target_width = int(orig_width * (720 / orig_height))
     
     print(f"Extracting {frame_count} frames from video (FPS: {fps})...")
+    print(f"Resizing from {orig_width}x{orig_height} to {target_width}x{target_height} (720p)")
     
     frame_idx = 0
     with tqdm(total=frame_count) as pbar:
@@ -60,8 +67,11 @@ def extract_frames_from_video(video_path, output_folder):
             if not ret:
                 break
             
+            # Resize frame to 720p
+            frame_resized = cv2.resize(frame, (target_width, target_height), interpolation=cv2.INTER_AREA)
+            
             frame_filename = os.path.join(output_folder, f"frame_{frame_idx:06d}.png")
-            cv2.imwrite(frame_filename, frame)
+            cv2.imwrite(frame_filename, frame_resized)
             frame_idx += 1
             pbar.update(1)
     

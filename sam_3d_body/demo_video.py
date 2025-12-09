@@ -1,10 +1,20 @@
 '''
+Process single video:
 python demo_video.py \
     --video_path /path/to/video.mp4 \
     --checkpoint_path /path/to/dinov3.ckpt \
     --mhr_path /path/to/mhr_model.pt \
     --output_fps 30 \
-    ----resolution 4k \
+    --resolution 4k \
+    --cleanup
+
+Process all videos in a folder:
+python demo_video.py \
+    --video_folder /path/to/videos \
+    --checkpoint_path /path/to/dinov3.ckpt \
+    --mhr_path /path/to/mhr_model.pt \
+    --output_fps 30 \
+    --resolution 4k \
     --cleanup
 '''
 
@@ -117,9 +127,15 @@ def create_video_from_frames(frames_folder, output_video_path, fps=30, resolutio
     print(f"Video saved to {output_video_path}")
 
 
-def main(args):
+def process_single_video(video_path, estimator, args):
+    """Process a single video file
+    
+    Args:
+        video_path: Path to the video file
+        estimator: SAM3DBodyEstimator instance
+        args: Command line arguments
+    """
     # Get video path and create folders
-    video_path = args.video_path
     video_name = os.path.splitext(os.path.basename(video_path))[0]
     video_dir = os.path.dirname(os.path.abspath(video_path))
     
@@ -131,9 +147,61 @@ def main(args):
     os.makedirs(output_folder, exist_ok=True)
     
     # Step 1: Extract frames from video
-    print("\n=== Step 1: Extracting frames from video ===")
+    print(f"\n=== Processing: {os.path.basename(video_path)} ===")
+    print("Step 1: Extracting frames from video")
     frame_count, original_fps = extract_frames_from_video(video_path, frames_folder)
     
+    # Step 2: Process frames
+    print("Step 2: Processing frames")
+    image_extensions = ["*.jpg", "*.jpeg", "*.png"]
+    images_list = sorted(
+        [
+            image
+            for ext in image_extensions
+            for image in glob(os.path.join(frames_folder, ext))
+        ]
+    )
+
+    for image_path in tqdm(images_list, desc="Processing frames"):
+        outputs = estimator.process_one_image(
+            image_path,
+            bbox_thr=args.bbox_thresh,
+            use_mask=args.use_mask,
+        )
+
+        img = cv2.imread(image_path)
+        rend_img = visualize_sample_together(img, outputs, estimator.faces)
+        
+        # Save with same filename as input frame
+        output_filename = os.path.basename(image_path)
+        cv2.imwrite(
+            os.path.join(output_folder, output_filename),
+            rend_img.astype(np.uint8),
+        )
+    
+    # Step 3: Create output video
+    print("Step 3: Creating output video")
+    output_video_path = os.path.join(video_dir, f"{video_name}_output.mp4")
+    create_video_from_frames(output_folder, output_video_path, fps=args.output_fps, resolution=args.resolution)
+    
+    # Optional: Clean up intermediate frames if requested
+    if args.cleanup:
+        print("Cleaning up intermediate files")
+        shutil.rmtree(frames_folder)
+        print(f"Removed extracted frames folder: {frames_folder}")
+        shutil.rmtree(output_folder)
+        print(f"Removed processed frames folder: {output_folder}")
+    
+    print(f"✓ Completed: {os.path.basename(video_path)}")
+    print(f"  Output video: {output_video_path}")
+    if not args.cleanup:
+        print(f"  Extracted frames: {frames_folder}")
+        print(f"  Processed frames: {output_folder}")
+    
+    return output_video_path
+
+
+def main(args):
     # Use command-line args or environment variables
     mhr_path = args.mhr_path or os.environ.get("SAM3D_MHR_PATH", "")
     detector_path = args.detector_path or os.environ.get("SAM3D_DETECTOR_PATH", "")
@@ -143,7 +211,7 @@ def main(args):
     # Initialize sam-3d-body model and other optional modules
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     
-    print("\n=== Step 2: Loading SAM 3D Body model ===")
+    print("\n=== Loading SAM 3D Body model ===")
     model, model_cfg = load_sam_3d_body(
         args.checkpoint_path, device=device, mhr_path=mhr_path
     )
@@ -173,49 +241,49 @@ def main(args):
         human_segmentor=human_segmentor,
         fov_estimator=fov_estimator,
     )
-
-    # Step 3: Process frames
-    print("\n=== Step 3: Processing frames ===")
-    image_extensions = ["*.jpg", "*.jpeg", "*.png"]
-    images_list = sorted(
-        [
-            image
-            for ext in image_extensions
-            for image in glob(os.path.join(frames_folder, ext))
-        ]
-    )
-
-    for image_path in tqdm(images_list, desc="Processing frames"):
-        outputs = estimator.process_one_image(
-            image_path,
-            bbox_thr=args.bbox_thresh,
-            use_mask=args.use_mask,
-        )
-
-        img = cv2.imread(image_path)
-        rend_img = visualize_sample_together(img, outputs, estimator.faces)
+    
+    # Get list of videos to process
+    video_list = []
+    if args.video_folder:
+        # Process all videos in folder
+        video_extensions = ["*.mp4", "*.mov", "*.avi", "*.mkv", "*.MP4", "*.MOV"]
+        for ext in video_extensions:
+            video_list.extend(glob(os.path.join(args.video_folder, ext)))
+        video_list = sorted(video_list)
         
-        # Save with same filename as input frame
-        output_filename = os.path.basename(image_path)
-        cv2.imwrite(
-            os.path.join(output_folder, output_filename),
-            rend_img.astype(np.uint8),
-        )
+        if not video_list:
+            print(f"No video files found in {args.video_folder}")
+            return
+        
+        print(f"\nFound {len(video_list)} video(s) to process:")
+        for i, video in enumerate(video_list, 1):
+            print(f"  {i}. {os.path.basename(video)}")
+    elif args.video_path:
+        # Process single video
+        video_list = [args.video_path]
+    else:
+        print("Error: Either --video_path or --video_folder must be specified")
+        return
     
-    # Step 4: Create output video
-    print("\n=== Step 4: Creating output video ===")
-    output_video_path = os.path.join(video_dir, f"{video_name}_output.mp4")
-    create_video_from_frames(output_folder, output_video_path, fps=args.output_fps, resolution=args.resolution)
+    # Process each video
+    print(f"\n=== Processing {len(video_list)} video(s) ===")
+    output_videos = []
+    for i, video_path in enumerate(video_list, 1):
+        print(f"\n[{i}/{len(video_list)}] {os.path.basename(video_path)}")
+        try:
+            output_video = process_single_video(video_path, estimator, args)
+            output_videos.append(output_video)
+        except Exception as e:
+            print(f"Error processing {video_path}: {e}")
+            continue
     
-    # Optional: Clean up intermediate frames if requested
-    if args.cleanup:
-        print("\n=== Cleaning up intermediate files ===")
-        shutil.rmtree(frames_folder)
-        print(f"Removed frames folder: {frames_folder}")
-    
-    print(f"\n=== Done! ===")
-    print(f"Output video: {output_video_path}")
-    print(f"Processed frames: {output_folder}")
+    # Summary
+    print(f"\n=== All Done! ===")
+    print(f"Successfully processed {len(output_videos)}/{len(video_list)} video(s)")
+    if output_videos:
+        print("\nOutput videos:")
+        for output_video in output_videos:
+            print(f"  - {output_video}")
 
 
 if __name__ == "__main__":
@@ -235,9 +303,15 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--video_path",
-        required=True,
+        default=None,
         type=str,
-        help="Path to input video file",
+        help="Path to input video file (mutually exclusive with --video_folder)",
+    )
+    parser.add_argument(
+        "--video_folder",
+        default=None,
+        type=str,
+        help="Path to folder containing multiple video files (mutually exclusive with --video_path)",
     )
     parser.add_argument(
         "--output_fps",

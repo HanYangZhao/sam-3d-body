@@ -203,11 +203,13 @@ def visualize_sample_together(img_cv2, outputs, faces):
         # Single row is fine
         cur_img = np.concatenate(all_images, axis=1)
     else:
-        # Need multiple rows - calculate how many images per row
+        # Need multiple rows - find maximum images per row that keeps aspect ratio <= 16:9
         # We want: (img_width * imgs_per_row) / (img_height * num_rows) <= 16/9
         # where num_rows = ceil(num_images / imgs_per_row)
-        best_imgs_per_row = num_images
-        for imgs_per_row in range(1, num_images + 1):
+        best_imgs_per_row = 1  # Worst case fallback
+        
+        # Try from most images per row down to 1, take the first that works
+        for imgs_per_row in range(num_images, 0, -1):
             num_rows = (num_images + imgs_per_row - 1) // imgs_per_row  # Ceiling division
             row_width = img_width * imgs_per_row
             total_height = img_height * num_rows

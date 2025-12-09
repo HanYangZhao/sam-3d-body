@@ -229,34 +229,34 @@ class Renderer:
             floor_trimesh = trimesh.creation.box(
                 extents=[floor_size, 0.01, floor_size]  # Thin flat box
             )
+            
+            # Find the lowest point of the original mesh (before rotations)
+            # In the original coordinate system, Y is up, so minimum Y is the feet
+            original_min_y = np.min(vertices[:, 1])
+            
             # Position floor below the mesh (at feet level)
-            # Estimate the lowest point of the mesh
-            mesh_vertices = vertices.copy()
+            # Apply transformations to match the mesh
             if side_view:
                 angle = rot_angle if side_view_direction.lower() == "right" else -rot_angle
                 rot = trimesh.transformations.rotation_matrix(
                     np.radians(angle), [0, 1, 0]
                 )
-                mesh_vertices = trimesh.transform_points(mesh_vertices, rot)
+                floor_trimesh.apply_transform(rot)
             elif top_view:
                 rot = trimesh.transformations.rotation_matrix(
                     np.radians(rot_angle), [1, 0, 0]
                 )
-                mesh_vertices = trimesh.transform_points(mesh_vertices, rot)
                 # Apply same rotation to floor for top view
                 floor_trimesh.apply_transform(rot)
             
             rot = trimesh.transformations.rotation_matrix(np.radians(180), [1, 0, 0])
-            mesh_vertices = trimesh.transform_points(mesh_vertices, rot)
             # Apply final 180-degree rotation to floor as well
             floor_trimesh.apply_transform(rot)
             
-            # Find the lowest Y coordinate (after transformations)
-            min_y = np.min(mesh_vertices[:, 1])
-            
-            # Position floor slightly below the lowest point
+            # Position floor at the original lowest Y point (feet level)
+            # After rotations, this ensures floor is at foot level regardless of view
             floor_translation = np.eye(4)
-            floor_translation[1, 3] = min_y - 0.01  # Just below feet
+            floor_translation[1, 3] = original_min_y - 0.01  # Just below feet
             floor_trimesh.apply_transform(floor_translation)
             
             # Create floor material (tennis court green)

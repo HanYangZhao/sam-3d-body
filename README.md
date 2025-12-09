@@ -92,6 +92,9 @@ python demo.py \
     --output_folder <path_to_output> \
     --checkpoint_path ./checkpoints/sam-3d-body-dinov3/model.ckpt \
     --mhr_path ./checkpoints/sam-3d-body-dinov3/assets/mhr_model.pt
+
+# macOS Note: If you encounter OpenGL/rendering errors, set this environment variable:
+export PYOPENGL_PLATFORM=''
 ```
 
 You can also try the following lines of code with models loaded directly from [Hugging Face](https://huggingface.co/facebook)

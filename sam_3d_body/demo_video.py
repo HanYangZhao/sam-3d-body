@@ -4,6 +4,7 @@ python demo_video.py \
     --checkpoint_path /path/to/dinov3.ckpt \
     --mhr_path /path/to/mhr_model.pt \
     --output_fps 30 \
+    ----resolution 4k \
     --cleanup
 '''
 
@@ -59,8 +60,15 @@ def extract_frames_from_video(video_path, output_folder):
     return frame_idx, fps
 
 
-def create_video_from_frames(frames_folder, output_video_path, fps=30):
-    """Create video from processed frames"""
+def create_video_from_frames(frames_folder, output_video_path, fps=30, resolution=None):
+    """Create video from processed frames
+    
+    Args:
+        frames_folder: Folder containing processed frame images
+        output_video_path: Path where output video will be saved
+        fps: Frame rate for output video
+        resolution: Target resolution as string ('1080p', '4k') or None for original
+    """
     image_extensions = ["*.jpg", "*.jpeg", "*.png"]
     images_list = sorted(
         [
@@ -75,17 +83,34 @@ def create_video_from_frames(frames_folder, output_video_path, fps=30):
     
     # Read first frame to get dimensions
     first_frame = cv2.imread(images_list[0])
-    height, width = first_frame.shape[:2]
+    orig_height, orig_width = first_frame.shape[:2]
+    
+    # Determine output dimensions
+    if resolution == "1080p":
+        target_height = 1080
+        target_width = int(orig_width * (1080 / orig_height))
+        print(f"Resizing to 1080p: {target_width}x{target_height}")
+    elif resolution == "4k":
+        target_height = 2160
+        target_width = int(orig_width * (2160 / orig_height))
+        print(f"Resizing to 4K: {target_width}x{target_height}")
+    else:
+        target_height = orig_height
+        target_width = orig_width
+        print(f"Using original resolution: {target_width}x{target_height}")
     
     # Initialize video writer
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
+    out = cv2.VideoWriter(output_video_path, fourcc, fps, (target_width, target_height))
     
     print(f"Creating video at {fps} FPS from {len(images_list)} frames...")
     
     for img_path in tqdm(images_list):
         frame = cv2.imread(img_path)
         if frame is not None:
+            # Resize if needed
+            if resolution in ["1080p", "4k"]:
+                frame = cv2.resize(frame, (target_width, target_height), interpolation=cv2.INTER_LANCZOS4)
             out.write(frame)
     
     out.release()
@@ -180,7 +205,7 @@ def main(args):
     # Step 4: Create output video
     print("\n=== Step 4: Creating output video ===")
     output_video_path = os.path.join(video_dir, f"{video_name}_output.mp4")
-    create_video_from_frames(output_folder, output_video_path, fps=args.output_fps)
+    create_video_from_frames(output_folder, output_video_path, fps=args.output_fps, resolution=args.resolution)
     
     # Optional: Clean up intermediate frames if requested
     if args.cleanup:
@@ -219,6 +244,13 @@ if __name__ == "__main__":
         default=30,
         type=int,
         help="Frame rate for output video (default: 30)",
+    )
+    parser.add_argument(
+        "--resolution",
+        default=None,
+        type=str,
+        choices=[None, "1080p", "4k"],
+        help="Output video resolution: '1080p' (1920x1080), '4k' (3840x2160), or None for original resolution (default: None)",
     )
     parser.add_argument(
         "--cleanup",

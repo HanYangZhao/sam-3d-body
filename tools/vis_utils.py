@@ -187,6 +187,51 @@ def visualize_sample_together(img_cv2, outputs, faces):
         * 255
     )
 
-    cur_img = np.concatenate([img_keypoints, img_mesh, img_mesh_side_right, img_mesh_side_left,img_mesh_back,img_mesh_top, ], axis=1)
+    # Arrange images in multiple rows to keep aspect ratio < 16:9
+    all_images = [img_keypoints, img_mesh, img_mesh_side_right, img_mesh_side_left, img_mesh_back, img_mesh_top]
+    
+    # Get dimensions
+    img_height, img_width = all_images[0].shape[:2]
+    num_images = len(all_images)
+    
+    # Calculate total width if all in one row
+    total_width_single_row = img_width * num_images
+    target_ratio = 16.0 / 9.0
+    
+    # Determine optimal layout
+    if total_width_single_row / img_height <= target_ratio:
+        # Single row is fine
+        cur_img = np.concatenate(all_images, axis=1)
+    else:
+        # Need multiple rows - calculate how many images per row
+        # We want: (img_width * imgs_per_row) / (img_height * num_rows) <= 16/9
+        # where num_rows = ceil(num_images / imgs_per_row)
+        best_imgs_per_row = num_images
+        for imgs_per_row in range(1, num_images + 1):
+            num_rows = (num_images + imgs_per_row - 1) // imgs_per_row  # Ceiling division
+            row_width = img_width * imgs_per_row
+            total_height = img_height * num_rows
+            aspect_ratio = row_width / total_height
+            
+            if aspect_ratio <= target_ratio:
+                best_imgs_per_row = imgs_per_row
+                break
+        
+        # Arrange images in rows
+        rows = []
+        for i in range(0, num_images, best_imgs_per_row):
+            row_images = all_images[i:i + best_imgs_per_row]
+            
+            # Pad last row if needed to match width
+            if len(row_images) < best_imgs_per_row:
+                # Create white padding images
+                padding_needed = best_imgs_per_row - len(row_images)
+                for _ in range(padding_needed):
+                    row_images.append(np.ones_like(white_img) * 255)
+            
+            row = np.concatenate(row_images, axis=1)
+            rows.append(row)
+        
+        cur_img = np.concatenate(rows, axis=0)
 
     return cur_img

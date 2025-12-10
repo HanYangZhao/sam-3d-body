@@ -38,8 +38,11 @@ import cv2
 import numpy as np
 import torch
 from sam_3d_body import load_sam_3d_body, SAM3DBodyEstimator
+from sam_3d_body.visualization.renderer import Renderer
 from tools.vis_utils import visualize_sample, visualize_sample_together
 from tqdm import tqdm
+
+LIGHT_BLUE = (0.65098039, 0.74117647, 0.85882353)
 
 
 def extract_frames_from_video(video_path, output_folder):
@@ -207,6 +210,12 @@ def process_single_video(video_path, estimator, args):
     if len(remaining_images) == 0:
         print("All frames already processed, skipping to video creation")
     else:
+        # Create mesh output folder if saving meshes
+        if args.save_mesh:
+            mesh_folder = os.path.join(video_dir, f"{video_name}_meshes")
+            os.makedirs(mesh_folder, exist_ok=True)
+            print(f"Mesh files will be saved to: {mesh_folder}")
+        
         for image_path in tqdm(remaining_images, desc="Processing frames"):
             outputs = estimator.process_one_image(
                 image_path,
@@ -223,6 +232,20 @@ def process_single_video(video_path, estimator, args):
                 os.path.join(output_folder, output_filename),
                 rend_img.astype(np.uint8),
             )
+            
+            # Save mesh files if requested
+            if args.save_mesh and outputs:
+                frame_name = os.path.splitext(output_filename)[0]
+                for pid, person_output in enumerate(outputs):
+                    renderer = Renderer(focal_length=person_output["focal_length"], faces=estimator.faces)
+                    tmesh = renderer.vertices_to_trimesh(
+                        person_output["pred_vertices"],
+                        person_output["pred_cam_t"],
+                        LIGHT_BLUE
+                    )
+                    mesh_filename = f"{frame_name}_person_{pid:03d}.ply"
+                    mesh_path = os.path.join(mesh_folder, mesh_filename)
+                    tmesh.export(mesh_path)
             
             # Update checkpoint file
             with open(checkpoint_file, 'a') as f:
@@ -480,6 +503,12 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
         help="Enable static camera mode: FOV is estimated from first 5 frames and cached (faster for videos with fixed camera)",
+    )
+    parser.add_argument(
+        "--save_mesh",
+        action="store_true",
+        default=False,
+        help="Save 3D mesh as PLY files for each frame and person detected (creates video_name_meshes folder)",
     )
     args = parser.parse_args()
 

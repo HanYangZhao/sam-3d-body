@@ -2,14 +2,8 @@
 
 ## Setup Python Environment
 
-### 1. Create and Activate Environment
 
-```bash
-conda create -n sam_3d_body python=3.11 -y
-conda activate sam_3d_body
-```
-
-### Or use venv
+### Enabled venv
 ```bash
 python3 -m venv .venv/
 source .venv/bin/activate
@@ -50,6 +44,8 @@ We host model checkpoints on Hugging Face. **Available models:**
 - [`facebook/sam-3d-body-dinov3`](https://huggingface.co/facebook/sam-3d-body-dinov3)
 - [`facebook/sam-3d-body-vith`](https://huggingface.co/facebook/sam-3d-body-vith)
 
+
+You'll need  the dinov3.ckpt, the mhr_model.pt and the model_config.yaml
 
 ⚠️ Please note that you need to **request access** on the SAM 3D Body Hugging Face repos above. Once accepted, you need to be authenticated to download the checkpoints.
 

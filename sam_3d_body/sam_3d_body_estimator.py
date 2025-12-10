@@ -184,7 +184,8 @@ class SAM3DBodyEstimator:
             batch["cam_int"] = cam_int.clone()
         elif self.fov_estimator is not None:
             # Use cached FOV if static_camera mode is enabled and FOV has been estimated
-            if self.static_camera and self.cached_cam_int is not None:
+            if self.static_camera and self.fov_estimation_count >= self.fov_estimation_limit:
+                # Use cached FOV for static camera after estimation is complete
                 cam_int = self.cached_cam_int.to(batch["img"])
                 batch["cam_int"] = cam_int.clone()
             elif self.static_camera and self.fov_estimation_count < self.fov_estimation_limit:

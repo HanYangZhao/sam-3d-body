@@ -57,13 +57,21 @@ def extract_frames_from_video(video_path, output_folder):
     
     # Calculate dimensions: smallest dimension becomes 720p, maintaining aspect ratio
     min_dimension = min(orig_height, orig_width)
-    scale_factor = 720 / min_dimension
     
-    target_height = int(orig_height * scale_factor)
-    target_width = int(orig_width * scale_factor)
-    
-    print(f"Extracting {frame_count} frames from video (FPS: {fps})...")
-    print(f"Resizing from {orig_width}x{orig_height} to {target_width}x{target_height} (smallest dimension: 720p)")
+    if min_dimension <= 720:
+        # Skip resize if already 720p or smaller
+        target_height = orig_height
+        target_width = orig_width
+        should_resize = False
+        print(f"Extracting {frame_count} frames from video (FPS: {fps})...")
+        print(f"Frame size {orig_width}x{orig_height} is already 720p or smaller, skipping resize")
+    else:
+        scale_factor = 720 / min_dimension
+        target_height = int(orig_height * scale_factor)
+        target_width = int(orig_width * scale_factor)
+        should_resize = True
+        print(f"Extracting {frame_count} frames from video (FPS: {fps})...")
+        print(f"Resizing from {orig_width}x{orig_height} to {target_width}x{target_height} (smallest dimension: 720p)")
     
     frame_idx = 0
     with tqdm(total=frame_count) as pbar:
@@ -72,8 +80,11 @@ def extract_frames_from_video(video_path, output_folder):
             if not ret:
                 break
             
-            # Resize frame to 720p
-            frame_resized = cv2.resize(frame, (target_width, target_height), interpolation=cv2.INTER_AREA)
+            # Resize frame to 720p if needed
+            if should_resize:
+                frame_resized = cv2.resize(frame, (target_width, target_height), interpolation=cv2.INTER_AREA)
+            else:
+                frame_resized = frame
             
             frame_filename = os.path.join(output_folder, f"frame_{frame_idx:06d}.png")
             cv2.imwrite(frame_filename, frame_resized)
@@ -455,7 +466,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--render_floor",
         action="store_true",
-        default=True,
+        default=False,
         help="Render floor plane in side, back, and top views (default: True)",
     )
     parser.add_argument(
@@ -467,7 +478,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--static_camera",
         action="store_true",
-        default=True,
+        default=False,
         help="Enable static camera mode: FOV is estimated from first 5 frames and cached (faster for videos with fixed camera)",
     )
     args = parser.parse_args()

@@ -221,6 +221,7 @@ def process_single_video(video_path, estimator, args):
                 image_path,
                 bbox_thr=args.bbox_thresh,
                 use_mask=args.use_mask,
+                inference_type=args.inference_type,
             )
 
             img = cv2.imread(image_path)
@@ -509,6 +510,13 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
         help="Save 3D mesh as PLY files for each frame and person detected (creates video_name_meshes folder)",
+    )
+    parser.add_argument(
+        "--inference_type",
+        type=str,
+        default="body",
+        choices=["full", "body"],
+        help="Inference mode: 'full' (body + hand refinement, slower), 'body' (body only, ~30%% faster, less hand detail)",
     )
     args = parser.parse_args()
 

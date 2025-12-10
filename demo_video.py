@@ -216,18 +216,39 @@ def process_single_video(video_path, estimator, args):
     if len(remaining_images) == 0:
         print("All frames already processed, skipping to video creation")
     else:
+        # Phase 1: FOV Estimation (if static camera mode)
+        if args.static_camera and estimator.fov_estimator is not None:
+            print("\n=== Phase 1: FOV Estimation ===")
+            estimator.set_fov_sample_indices(len(images_list))
+            fov_sample_indices = estimator.fov_sample_indices
+            print(f"Sampling FOV from {len(fov_sample_indices)} frames: {sorted(list(fov_sample_indices))}")
+            
+            for sample_idx in tqdm(sorted(list(fov_sample_indices)), desc="Sampling FOV"):
+                if sample_idx < len(images_list):
+                    sample_image_path = images_list[sample_idx]
+                    estimator.estimate_fov_only(sample_image_path)
+            
+            print(f"FOV estimation complete. Averaged over {len(fov_sample_indices)} frames.\n")
+        
         # Create mesh output folder if saving meshes
         if args.save_mesh:
             mesh_folder = os.path.join(video_dir, f"{video_name}_meshes")
             os.makedirs(mesh_folder, exist_ok=True)
             print(f"Mesh files will be saved to: {mesh_folder}")
         
-        for image_path in tqdm(remaining_images, desc="Processing frames"):
+        # Phase 2: Process all frames
+        print("\n=== Phase 2: Processing Frames ===")
+        for idx, image_path in enumerate(tqdm(remaining_images, desc="Processing frames")):
+            # Calculate actual frame index from filename
+            frame_filename = os.path.basename(image_path)
+            frame_idx = images_list.index(image_path)
+            
             outputs = estimator.process_one_image(
                 image_path,
                 bbox_thr=args.bbox_thresh,
                 use_mask=args.use_mask,
                 inference_type=args.inference_type,
+                frame_index=frame_idx,
             )
 
             img = cv2.imread(image_path)
@@ -520,7 +541,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--inference_type",
         type=str,
-        default="body",
+        default="full",
         choices=["full", "body"],
         help="Inference mode: 'full' (body + hand refinement, slower), 'body' (body only, ~30%% faster, less hand detail)",
     )
@@ -528,7 +549,7 @@ if __name__ == "__main__":
         "--processing_resolution",
         type=int,
         default=720,
-        choices=[480, 720, 1080],
+        choices=[480, 540, 720, 1080],
         help="Resolution for processing frames (smallest dimension in pixels). Lower = faster but less accurate. Default: 720",
     )
     args = parser.parse_args()

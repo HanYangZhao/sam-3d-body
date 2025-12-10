@@ -2,7 +2,7 @@
 from typing import Optional, Union
 
 import cv2
-
+import os
 import numpy as np
 import torch
 
@@ -41,6 +41,9 @@ class SAM3DBodyEstimator:
         self.cached_cam_int = None
         self.fov_estimation_count = 0
         self.fov_estimation_limit = 5  # Number of frames to average for FOV
+        self.fov_sample_indices = None  # Specific frame indices to sample for FOV
+        self.current_frame_index = 0  # Track current frame being processed
+        self.fov_estimation_complete = False  # Flag to indicate FOV estimation is done
 
         # For mesh visualization
         self.faces = self.model.head_pose.faces.cpu().numpy()
@@ -74,7 +77,64 @@ class SAM3DBodyEstimator:
         """
         self.cached_cam_int = None
         self.fov_estimation_count = 0
+        self.fov_sample_indices = None
+        self.current_frame_index = 0
+        self.fov_estimation_complete = False
+        self.fov_estimation_complete = False
         print("Cache reset: FOV will be re-estimated for next video/scene.")
+    
+    def set_fov_sample_indices(self, total_frames):
+        """
+        Set specific frame indices to sample for FOV estimation, spread across the video.
+        
+        Args:
+            total_frames: Total number of frames in the video
+        """
+        if total_frames <= self.fov_estimation_limit:
+            # If video is short, sample all frames
+            self.fov_sample_indices = set(range(total_frames))
+        else:
+            # Spread samples evenly across the video
+            step = total_frames / self.fov_estimation_limit
+            self.fov_sample_indices = set(int(i * step) for i in range(self.fov_estimation_limit))
+        print(f"FOV will be sampled at frames: {sorted(self.fov_sample_indices)}")
+
+    @torch.no_grad()
+    def estimate_fov_only(self, img: Union[str, np.ndarray]):
+        """
+        Estimate FOV for a single frame and accumulate for averaging.
+        Used in Phase 1 to pre-compute FOV before processing frames.
+        
+        Args:
+            img: Input image (path or numpy array)
+        """
+        if not self.fov_estimator:
+            return
+        
+        # Load and prepare image
+        if isinstance(img, str):
+            assert os.path.exists(img), f"Image path does not exist: {img}"
+            img_bgr = cv2.imread(img)
+        else:
+            img_bgr = img
+        
+        img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+        
+        # Estimate FOV
+        cam_int = self.fov_estimator.get_cam_intrinsics(img_rgb)
+        
+        # Accumulate estimates
+        if self.fov_estimation_count == 0:
+            self.cached_cam_int = cam_int.clone()
+        else:
+            # Running average
+            self.cached_cam_int = (self.cached_cam_int * self.fov_estimation_count + cam_int) / (self.fov_estimation_count + 1)
+        
+        self.fov_estimation_count += 1
+        
+        # Mark as complete when we have enough samples
+        if self.fov_estimation_count >= self.fov_estimation_limit:
+            self.fov_estimation_complete = True
 
     @torch.no_grad()
     def process_one_image(
@@ -88,6 +148,7 @@ class SAM3DBodyEstimator:
         nms_thr: float = 0.3,
         use_mask: bool = False,
         inference_type: str = "full",
+        frame_index: Optional[int] = None,
     ):
         """
         Perform model prediction in top-down format: assuming input is a full image.
@@ -183,34 +244,11 @@ class SAM3DBodyEstimator:
             cam_int = cam_int.to(batch["img"])
             batch["cam_int"] = cam_int.clone()
         elif self.fov_estimator is not None:
-            # Use cached FOV if static_camera mode is enabled and FOV has been estimated
-            if self.static_camera and self.fov_estimation_count >= self.fov_estimation_limit:
-                # Use cached FOV for static camera after estimation is complete
+            if self.static_camera and self.fov_estimation_complete:
+                # Use cached FOV (estimation already complete in Phase 1)
                 cam_int = self.cached_cam_int.to(batch["img"])
                 batch["cam_int"] = cam_int.clone()
-            elif self.static_camera and self.fov_estimation_count < self.fov_estimation_limit:
-                # Estimate FOV for the first few frames and average (static camera mode)
-                print(f"Running FOV estimator (frame {self.fov_estimation_count + 1}/{self.fov_estimation_limit})...")
-                input_image = batch["img_ori"][0].data
-                cam_int = self.fov_estimator.get_cam_intrinsics(input_image).to(
-                    batch["img"]
-                )
-                
-                # Accumulate FOV estimates
-                if self.fov_estimation_count == 0:
-                    self.cached_cam_int = cam_int.clone()
-                else:
-                    # Running average
-                    self.cached_cam_int = (self.cached_cam_int * self.fov_estimation_count + cam_int) / (self.fov_estimation_count + 1)
-                
-                self.fov_estimation_count += 1
-                
-                # Once we have enough estimates, print confirmation
-                if self.fov_estimation_count >= self.fov_estimation_limit:
-                    print(f"FOV estimation complete (averaged over {self.fov_estimation_limit} frames). Using cached FOV for remaining frames.")
-                
-                batch["cam_int"] = cam_int.clone()
-            else:
+            elif not self.static_camera:
                 # Dynamic camera mode - estimate FOV for every frame
                 print("Running FOV estimator ...")
                 input_image = batch["img_ori"][0].data
@@ -218,6 +256,9 @@ class SAM3DBodyEstimator:
                     batch["img"]
                 )
                 batch["cam_int"] = cam_int.clone()
+            else:
+                # Fallback: use default cam_int
+                cam_int = batch["cam_int"].clone()
         else:
             cam_int = batch["cam_int"].clone()
 

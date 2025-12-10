@@ -224,53 +224,67 @@ def visualize_sample_together(img_cv2, outputs, faces, render_floor=True, larges
         * 255
     )
 
-    # Arrange images in multiple rows to keep aspect ratio < 16:9
+    # Arrange images in multiple rows to keep aspect ratio reasonable
     all_images = [img_keypoints, img_mesh, img_mesh_side_right, img_mesh_side_left, img_mesh_back, img_mesh_top]
     
     # Get dimensions
     img_height, img_width = all_images[0].shape[:2]
     num_images = len(all_images)
     
-    # Calculate total width if all in one row
-    total_width_single_row = img_width * num_images
-    target_ratio = 16.0 / 9.0
+    # Check if image is vertical (portrait) or horizontal (landscape)
+    is_vertical = img_height > img_width
     
-    # Determine optimal layout
-    if total_width_single_row / img_height <= target_ratio:
-        # Single row is fine
-        cur_img = np.concatenate(all_images, axis=1)
-    else:
-        # Need multiple rows - find maximum images per row that keeps aspect ratio <= 16:9
-        # We want: (img_width * imgs_per_row) / (img_height * num_rows) <= 16/9
-        # where num_rows = ceil(num_images / imgs_per_row)
-        best_imgs_per_row = 1  # Worst case fallback
-        
-        # Try from most images per row down to 1, take the first that works
-        for imgs_per_row in range(num_images, 0, -1):
-            num_rows = (num_images + imgs_per_row - 1) // imgs_per_row  # Ceiling division
-            row_width = img_width * imgs_per_row
-            total_height = img_height * num_rows
-            aspect_ratio = row_width / total_height
-            
-            if aspect_ratio <= target_ratio:
-                best_imgs_per_row = imgs_per_row
-                break
-        
-        # Arrange images in rows
+    if is_vertical:
+        # For vertical videos: use 2 rows of 3 views each
+        imgs_per_row = 3
         rows = []
-        for i in range(0, num_images, best_imgs_per_row):
-            row_images = all_images[i:i + best_imgs_per_row]
-            
-            # Pad last row if needed to match width
-            if len(row_images) < best_imgs_per_row:
-                # Create white padding images
-                padding_needed = best_imgs_per_row - len(row_images)
-                for _ in range(padding_needed):
-                    row_images.append(np.ones_like(white_img) * 255)
-            
+        for i in range(0, num_images, imgs_per_row):
+            row_images = all_images[i:i + imgs_per_row]
             row = np.concatenate(row_images, axis=1)
             rows.append(row)
-        
         cur_img = np.concatenate(rows, axis=0)
+    else:
+        # For horizontal videos: use existing logic for 16:9 ratio
+        # Calculate total width if all in one row
+        total_width_single_row = img_width * num_images
+        target_ratio = 16.0 / 9.0
+        
+        # Determine optimal layout
+        if total_width_single_row / img_height <= target_ratio:
+            # Single row is fine
+            cur_img = np.concatenate(all_images, axis=1)
+        else:
+            # Need multiple rows - find maximum images per row that keeps aspect ratio <= 16:9
+            # We want: (img_width * imgs_per_row) / (img_height * num_rows) <= 16/9
+            # where num_rows = ceil(num_images / imgs_per_row)
+            best_imgs_per_row = 1  # Worst case fallback
+            
+            # Try from most images per row down to 1, take the first that works
+            for imgs_per_row in range(num_images, 0, -1):
+                num_rows = (num_images + imgs_per_row - 1) // imgs_per_row  # Ceiling division
+                row_width = img_width * imgs_per_row
+                total_height = img_height * num_rows
+                aspect_ratio = row_width / total_height
+                
+                if aspect_ratio <= target_ratio:
+                    best_imgs_per_row = imgs_per_row
+                    break
+            
+            # Arrange images in rows
+            rows = []
+            for i in range(0, num_images, best_imgs_per_row):
+                row_images = all_images[i:i + best_imgs_per_row]
+                
+                # Pad last row if needed to match width
+                if len(row_images) < best_imgs_per_row:
+                    # Create white padding images
+                    padding_needed = best_imgs_per_row - len(row_images)
+                    for _ in range(padding_needed):
+                        row_images.append(np.ones_like(white_img) * 255)
+                
+                row = np.concatenate(row_images, axis=1)
+                rows.append(row)
+            
+            cur_img = np.concatenate(rows, axis=0)
 
     return cur_img

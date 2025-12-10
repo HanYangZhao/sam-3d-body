@@ -435,7 +435,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--skip_detection",
         action="store_true",
-        default=True,
+        default=False,
         help="Skip human detection and use full frame (much faster, use when player is always fully visible in frame)",
     )
     parser.add_argument(
@@ -495,7 +495,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--largest_body_only",
         action="store_true",
-        default=True,
+        default=False,
         help="When multiple bodies detected, only process and render the largest one (default: False)",
     )
     parser.add_argument(

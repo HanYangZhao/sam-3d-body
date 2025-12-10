@@ -69,6 +69,7 @@ python demo_video.py \
 | Argument | Type | Default | Description |
 |----------|------|---------|-------------|
 | `--static_camera` | flag | False | Cache FOV (averaged from first 5 frames) for fixed camera videos |
+| `--processing_resolution` | int | 720 | Processing resolution: `480`, `720`, or `1080` (lower = faster) |
 
 ### Visualization Options
 
@@ -180,16 +181,17 @@ Use `--cleanup` to automatically remove the frame folders after processing.
 ### For Maximum Speed
 1. Use `--skip_detection` when subject is always fully visible
 2. Use `--static_camera` for tripod/fixed camera videos (caches FOV from first 5 frames)
-3. Use `--cleanup` to save disk space
-4. Process at lower resolution first, then upscale with `--resolution`
-5. Videos ≤720p automatically skip resize step (faster frame extraction)
+3. Use `--inference_type body` to skip hand refinement (~30% faster)
+4. Use `--processing_resolution 480` for significantly faster processing (2-3x speedup, slight accuracy loss)
+5. Use `--cleanup` to save disk space
+6. Upscale output with `--resolution 1080p` or `4k` after processing at lower resolution
 
 ### When to Use Each Flag
 
 | Scenario | Recommended Flags |
 |----------|-------------------|
-| Tennis serve (behind player) | `--skip_detection --static_camera --render_floor` |
-| Sports training (full body visible) | `--skip_detection --static_camera` |
+| Tennis serve (behind player) | `--skip_detection --static_camera --inference_type body --processing_resolution 480 --render_floor` |
+| Sports training (full body visible) | `--skip_detection --static_camera --inference_type body --processing_resolution 480` |
 | Crowd scene (multiple people) | `--largest_body_only --bbox_thresh 0.9` |
 | Handheld/moving camera | (no special flags, full detection) |
 | Close-up with zoom changes | (no special flags, full detection) |

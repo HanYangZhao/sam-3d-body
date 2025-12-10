@@ -45,8 +45,14 @@ from tqdm import tqdm
 LIGHT_BLUE = (0.65098039, 0.74117647, 0.85882353)
 
 
-def extract_frames_from_video(video_path, output_folder):
-    """Extract frames from video and save to output folder, resizing smallest dimension to 720p"""
+def extract_frames_from_video(video_path, output_folder, target_resolution=720):
+    """Extract frames from video and save to output folder, resizing smallest dimension to target resolution
+    
+    Args:
+        video_path: Path to input video
+        output_folder: Where to save extracted frames
+        target_resolution: Target size for smallest dimension (default 720)
+    """
     os.makedirs(output_folder, exist_ok=True)
     
     cap = cv2.VideoCapture(video_path)
@@ -58,23 +64,23 @@ def extract_frames_from_video(video_path, output_folder):
     orig_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     orig_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     
-    # Calculate dimensions: smallest dimension becomes 720p, maintaining aspect ratio
+    # Calculate dimensions: smallest dimension becomes target_resolution, maintaining aspect ratio
     min_dimension = min(orig_height, orig_width)
     
-    if min_dimension <= 720:
-        # Skip resize if already 720p or smaller
+    if min_dimension <= target_resolution:
+        # Skip resize if already at target or smaller
         target_height = orig_height
         target_width = orig_width
         should_resize = False
         print(f"Extracting {frame_count} frames from video (FPS: {fps})...")
-        print(f"Frame size {orig_width}x{orig_height} is already 720p or smaller, skipping resize")
+        print(f"Frame size {orig_width}x{orig_height} is already {target_resolution}p or smaller, skipping resize")
     else:
-        scale_factor = 720 / min_dimension
+        scale_factor = target_resolution / min_dimension
         target_height = int(orig_height * scale_factor)
         target_width = int(orig_width * scale_factor)
         should_resize = True
         print(f"Extracting {frame_count} frames from video (FPS: {fps})...")
-        print(f"Resizing from {orig_width}x{orig_height} to {target_width}x{target_height} (smallest dimension: 720p)")
+        print(f"Resizing from {orig_width}x{orig_height} to {target_width}x{target_height} (smallest dimension: {target_resolution}p)")
     
     frame_idx = 0
     with tqdm(total=frame_count) as pbar:
@@ -188,7 +194,7 @@ def process_single_video(video_path, estimator, args):
     # Step 1: Extract frames from video
     print(f"\n=== Processing: {os.path.basename(video_path)} ===")
     print("Step 1: Extracting frames from video")
-    frame_count, original_fps = extract_frames_from_video(video_path, frames_folder)
+    frame_count, original_fps = extract_frames_from_video(video_path, frames_folder, args.processing_resolution)
     
     # Step 2: Process frames
     print("Step 2: Processing frames")
@@ -517,6 +523,13 @@ if __name__ == "__main__":
         default="body",
         choices=["full", "body"],
         help="Inference mode: 'full' (body + hand refinement, slower), 'body' (body only, ~30%% faster, less hand detail)",
+    )
+    parser.add_argument(
+        "--processing_resolution",
+        type=int,
+        default=720,
+        choices=[480, 720, 1080],
+        help="Resolution for processing frames (smallest dimension in pixels). Lower = faster but less accurate. Default: 720",
     )
     args = parser.parse_args()
 

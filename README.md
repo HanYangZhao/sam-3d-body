@@ -2,6 +2,10 @@
 
 Process videos to estimate 3D human pose and render mesh visualizations with multiple camera views. This project is based on the [SAM 3D Model](https://github.com/facebookresearch/sam-3d-body) from Meta
 
+
+![Demo](https://github.com/HanYangZhao/sam-3d-body/blob/main/example/tennis_forehand.gif)
+
+
 ## Quick Start
 
 For installation, refer to INSTALL.md
